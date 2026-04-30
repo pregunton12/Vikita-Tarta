@@ -37,6 +37,7 @@ const APP = (() => {
         altMin: 10,
         altMax: 20,
         tiendaWhatsApp: '34600000000',
+        groqApiKey: '',
     };
 
     let selectores = [
@@ -84,6 +85,14 @@ const APP = (() => {
         if (refs.btnCancelar) refs.btnCancelar.addEventListener('click', cerrarModal);
         if (refs.btnGuardar) refs.btnGuardar.addEventListener('click', guardarAjustes);
         if (refs.btnAddSelector) refs.btnAddSelector.addEventListener('click', añadirNuevoSelector);
+
+        // Toggle mostrar/ocultar API key
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'btnToggleKey') {
+                const input = document.getElementById('adj_groqApiKey');
+                if (input) input.type = input.type === 'password' ? 'text' : 'password';
+            }
+        });
     }
 
     // ── Lógica de Panel ──
@@ -119,29 +128,85 @@ const APP = (() => {
     }
 
     // ── Acciones ──
-    function crearPrompt() {
+    let ultimoPromptEnriquecido = null; // Caché para no llamar la API dos veces
+
+    function crearPromptBase() {
         const d = refs.inputDiametro ? refs.inputDiametro.value : config.diamMin;
         const desc = refs.textareaDesc ? refs.textareaDesc.value.trim() : "";
-        
+
         const detalles = selectores.map(sel => {
             const el = document.getElementById(`sel_${sel.id}`);
             const valor = el ? el.value : (sel.opciones[0] || "");
             return `${sel.etiqueta}: ${valor}`;
-        }).filter(d => d !== "").join(', ');
+        }).filter(item => item !== "").join(', ');
 
-        return `Professional food photography of a round cake, ${d}cm diameter, ${detalles}. ${desc}. High resolution, studio lighting, plain background, 8k.`.replace(/\s+/g, ' ').trim();
+        const descPart = desc ? `. ${desc}` : '';
+        return `Tarta redonda, ${d}cm de diámetro, ${detalles}${descPart}.`.replace(/\s+/g, ' ').trim();
+    }
+
+    async function enriquecerPrompt(promptBase) {
+        if (!config.groqApiKey) throw new Error('Sin API key');
+
+        const systemPrompt = `You are an expert AI image prompt engineer specializing in professional food photography.
+Your task is to take a basic cake description and transform it into a highly detailed, professional image generation prompt in English.
+
+Rules:
+- Always write in English regardless of the input language
+- Expand every ingredient/decoration detail with vivid, sensory descriptions (textures, colors, finishes, techniques)
+- Add professional photography details: lighting setup, camera angle, lens type, depth of field
+- Add food styling details: plating, garnishes, surface, props if relevant
+- End with technical quality tags: ultra-high resolution, 8k, hyper-photorealistic, microscopically detailed, crisp focus, breathtaking depth of field, perfect composition, culinary masterpiece, magazine-quality
+- Output ONLY the final prompt, no explanations, no quotes, no preamble`;
+
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${config.groqApiKey}`
+            },
+            body: JSON.stringify({
+                model: "llama-3.3-70b-versatile",
+                max_tokens: 1000,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: `Transform this cake description into a professional image generation prompt: "${promptBase}"` }
+                ]
+            })
+        });
+
+        if (!response.ok) throw new Error(`Groq API error: ${response.status}`);
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content?.trim() || promptBase;
+    }
+
+    function setLoaderText(texto) {
+        const loaderText = refs.loader ? refs.loader.querySelector('.loader-text') : null;
+        if (loaderText) loaderText.textContent = texto;
     }
 
     async function generarImagen() {
-        const prompt = crearPrompt();
-        // Usar HTTPS siempre y añadir un seed único para evitar caché
-        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
-
+        ultimoPromptEnriquecido = null;
         setVista('loading');
+        setLoaderText('Preparando prompt...');
         if (refs.btnGenerar) refs.btnGenerar.disabled = true;
 
+        let prompt;
+        try {
+            const base = crearPromptBase();
+            prompt = await enriquecerPrompt(base);
+            ultimoPromptEnriquecido = prompt;
+        } catch (e) {
+            console.error("Error enriqueciendo prompt:", e);
+            prompt = crearPromptBase();
+            ultimoPromptEnriquecido = prompt;
+            mostrarToast('⚠ Prompt simplificado (sin API)');
+        }
+
+        setLoaderText('Generando imagen...');
+        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
+
         const img = new Image();
-        img.crossOrigin = "anonymous"; // Importante para permitir descargas en algunos servidores
+        img.crossOrigin = "anonymous";
         img.onload = () => {
             if (refs.foto) refs.foto.src = url;
             setVista('image');
@@ -175,24 +240,34 @@ const APP = (() => {
         }
     }
 
-    function copiarPrompt() {
-        const prompt = crearPrompt();
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(prompt).then(() => mostrarToast('✓ Copiado'));
-        } else {
-            // Fallback para navegadores antiguos o sin HTTPS
-            const textArea = document.createElement("textarea");
-            textArea.value = prompt;
-            document.body.appendChild(textArea);
-            textArea.select();
+    async function copiarPrompt() {
+        let prompt = ultimoPromptEnriquecido;
+
+        if (!prompt) {
+            // Nunca se generó imagen: enriquecer ahora
+            mostrarToast('Enriqueciendo prompt...');
             try {
-                document.execCommand('copy');
-                mostrarToast('✓ Copiado');
-            } catch (err) {
-                console.error('Error al copiar:', err);
+                prompt = await enriquecerPrompt(crearPromptBase());
+                ultimoPromptEnriquecido = prompt;
+            } catch (e) {
+                prompt = crearPromptBase();
             }
-            document.body.removeChild(textArea);
         }
+
+        const escribir = (p) => {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(p).then(() => mostrarToast('✓ Copiado'));
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = p;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try { document.execCommand('copy'); mostrarToast('✓ Copiado'); }
+                catch (err) { console.error('Error al copiar:', err); }
+                document.body.removeChild(textArea);
+            }
+        };
+        escribir(prompt);
     }
 
     function enviarWhatsApp() {
@@ -211,10 +286,12 @@ const APP = (() => {
         const wa = document.getElementById('adj_whatsapp');
         const min = document.getElementById('adj_diamMin');
         const max = document.getElementById('adj_diamMax');
+        const apikey = document.getElementById('adj_groqApiKey');
         
         if (wa) wa.value = config.tiendaWhatsApp;
         if (min) min.value = config.diamMin;
         if (max) max.value = config.diamMax;
+        if (apikey) apikey.value = config.groqApiKey || '';
         
         renderAjustesSelectores();
         if (refs.modalOverlay) refs.modalOverlay.classList.add('open');
@@ -266,6 +343,8 @@ const APP = (() => {
         if (wa) config.tiendaWhatsApp = wa.value;
         if (min) config.diamMin = parseInt(min.value) || 20;
         if (max) config.diamMax = parseInt(max.value) || 40;
+        const apikey = document.getElementById('adj_groqApiKey');
+        if (apikey) config.groqApiKey = apikey.value.trim();
         
         try {
             localStorage.setItem('tarta_config', JSON.stringify(config));
@@ -277,6 +356,9 @@ const APP = (() => {
         if (refs.inputDiametro) {
             refs.inputDiametro.min = config.diamMin;
             refs.inputDiametro.max = config.diamMax;
+            const current = parseInt(refs.inputDiametro.value);
+            if (current < config.diamMin) refs.inputDiametro.value = config.diamMin;
+            if (current > config.diamMax) refs.inputDiametro.value = config.diamMax;
         }
         
         renderSelectores();
@@ -301,8 +383,8 @@ const APP = (() => {
         toastTimer = setTimeout(() => refs.toast.classList.remove('show'), 2000);
     }
 
-    // Exponer funciones para los onclick del modal
-    window.APP = {
+    return {
+        init,
         eliminarSelector: (idx) => { selectores.splice(idx, 1); renderAjustesSelectores(); },
         updateSelectorName: (idx, val) => { selectores[idx].etiqueta = val; },
         eliminarOpcion: (sIdx, oIdx) => { selectores[sIdx].opciones.splice(oIdx, 1); renderAjustesSelectores(); },
@@ -314,8 +396,6 @@ const APP = (() => {
             }
         }
     };
-
-    return { init };
 })();
 
 document.addEventListener('DOMContentLoaded', APP.init);
