@@ -3,130 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Configurador interactivo de tartas con generación de imágenes mediante IA">
+    <meta name="description" content="Configurador profesional de tartas personalizadas">
     <meta name="theme-color" content="#faf7f2">
-    <title>Configurador de Tartas</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <title>Configurador de Tartas Profesional</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <noscript>
-        <div class="noscript-warning">
-            Esta aplicación necesita JavaScript activado para funcionar.
-        </div>
-    </noscript>
-
     <div class="app">
-        <!-- Panel izquierdo -->
-        <aside class="panel" aria-label="Panel de configuración">
+        <!-- ── Panel izquierdo ── -->
+        <aside class="panel">
             <div class="panel-header">
                 <h2>Configurador</h2>
-                <button class="btn-settings" id="btnAjustes" type="button" title="Abrir ajustes" aria-label="Abrir ajustes" aria-haspopup="dialog">
-                    <span aria-hidden="true">⚙️</span>
-                </button>
+                <button class="btn-settings" id="btnAjustes" type="button" title="Configurar opciones">⚙️</button>
             </div>
 
-            <!-- Diámetro -->
-            <div class="field">
-                <label for="inputDiametro" id="labelDiametro">Diámetro (20 – 40 cm)</label>
-                <input type="number" id="inputDiametro" min="20" max="40" value="30" step="1" inputmode="numeric">
-            </div>
+            <div class="scroll-area">
+                <!-- Diámetro -->
+                <div class="field">
+                    <label for="inputDiametro" id="labelDiametro">Diámetro (20 – 40 cm)</label>
+                    <input type="number" id="inputDiametro" min="20" max="40" value="30">
+                </div>
 
-            <!-- Altura estimada -->
-            <div class="field">
-                <span class="altura-badge" id="alturaLabel" aria-live="polite">Altura estimada: 15.0 cm</span>
-            </div>
+                <!-- Altura estimada -->
+                <div class="field">
+                    <span class="altura-badge" id="alturaLabel">Altura estimada: 15.0 cm</span>
+                </div>
 
-            <!-- Descripción -->
-            <div class="field">
-                <label for="textareaDesc">Descripción (máx. 300 caracteres)</label>
-                <textarea id="textareaDesc" placeholder="Describe el estilo, decoración, tema, colores, ocasión..." maxlength="300" rows="3"></textarea>
-                <div class="char-count" id="charCount" aria-live="polite">0 / 300</div>
-            </div>
+                <!-- Descripción -->
+                <div class="field">
+                    <label for="textareaDesc">Descripción / Notas</label>
+                    <textarea id="textareaDesc" placeholder="Ej: Estilo minimalista, flores blancas..." maxlength="300"></textarea>
+                    <div class="char-count" id="charCount">0 / 300</div>
+                </div>
 
-            <!-- Selectores dinámicos -->
-            <div id="selectores-dinamicos" role="group" aria-label="Opciones de la tarta"></div>
+                <!-- Selectores dinámicos -->
+                <div id="selectores-dinamicos"></div>
+            </div>
 
             <!-- Botones de acción -->
-            <button class="btn btn-gen" id="btnGenerar" type="button">Generar imagen</button>
-            <button class="btn btn-copy" id="btnCopiar" type="button">Copiar prompt</button>
-            <button class="btn btn-save" id="btnGuardarImagen" type="button" disabled>Guardar imagen</button>
+            <div class="panel-actions">
+                <button class="btn btn-gen" id="btnGenerar" type="button">GENERAR DISEÑO</button>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" id="btnCopiar" type="button">Copiar Prompt</button>
+                    <button class="btn btn-secondary" id="btnDescargar" type="button" disabled>Descargar</button>
+                </div>
+                <button class="btn btn-whatsapp" id="btnWhatsApp" type="button">Enviar a Tienda</button>
+            </div>
         </aside>
 
-        <!-- Panel derecho (vista previa) -->
-        <main class="vista" aria-label="Vista previa">
-            <!-- Placeholder inicial -->
+        <!-- ── Panel derecho ── -->
+        <main class="vista">
             <div class="placeholder" id="placeholder">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
-                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                    <polyline points="21 15 16 10 5 21"></polyline>
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                    <path d="M12 21.5c-4.5 0-9-1.5-9-4.5V7.5c0-3 4.5-4.5 9-4.5s9 1.5 9 4.5V17c0 3-4.5 4.5-9 4.5z"></path>
+                    <path d="M3 7.5c0 3 4.5 4.5 9 4.5s9-1.5 9-4.5"></path>
+                    <path d="M3 12.5c0 3 4.5 4.5 9 4.5s9-1.5 9-4.5"></path>
                 </svg>
-                <span>Configura y genera tu tarta</span>
+                <span>Configura tu tarta</span>
             </div>
 
-            <!-- Loader -->
-            <div class="loader" id="loader" role="status" aria-live="polite">
-                <div class="spinner" aria-hidden="true"></div>
-                <div class="loader-text">Generando imagen...</div>
+            <div class="loader" id="loader">
+                <div class="spinner"></div>
+                <div class="loader-text">Diseñando...</div>
             </div>
 
-            <!-- Galería de imágenes -->
-            <div class="galeria" id="galeria">
-                <div class="foto-marco" id="fotoMarco">
-                    <button class="nav-arrow nav-prev" id="btnPrev" type="button" aria-label="Imagen anterior" hidden>
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true" focusable="false">
-                            <polyline points="15 6 9 12 15 18"></polyline>
-                        </svg>
-                    </button>
-                    <button class="nav-arrow nav-next" id="btnNext" type="button" aria-label="Siguiente imagen" hidden>
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true" focusable="false">
-                            <polyline points="9 6 15 12 9 18"></polyline>
-                        </svg>
-                    </button>
-                    <img id="foto" src="" alt="Imagen de la tarta generada según la configuración">
-                </div>
-                <div class="galeria-foot">
-                    <span class="contador" id="contador" aria-live="polite" hidden>1 / 10</span>
-                    <button class="btn-reiniciar" id="btnReiniciar" type="button" hidden>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" focusable="false">
-                            <polyline points="1 4 1 10 7 10"></polyline>
-                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                        </svg>
-                        Reiniciar galería
-                    </button>
-                </div>
+            <div class="foto-marco" id="fotoMarco">
+                <img id="foto" src="" alt="Tarta">
             </div>
 
-            <!-- Mensaje de error -->
-            <div class="error-msg" id="errorMsg" role="alert">
-                No se pudo cargar la imagen. El servicio puede estar saturado, prueba de nuevo en unos segundos.
-            </div>
+            <div class="error-msg" id="errorMsg">Error al generar imagen.</div>
         </main>
     </div>
 
-    <!-- Toast de notificación -->
-    <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="toast"></div>
 
-    <!-- Modal de ajustes -->
-    <div class="modal-overlay" id="modalOverlay" hidden>
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
+    <!-- ── Modal de ajustes ── -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
             <div class="modal-head">
-                <h3 id="modalTitle">Ajustes</h3>
-                <button class="modal-close" id="btnCerrarModal" type="button" aria-label="Cerrar modal">
-                    <span aria-hidden="true">✕</span>
-                </button>
+                <h3>Ajustes de la Tienda</h3>
+                <button class="modal-close" id="btnCerrarModal">✕</button>
             </div>
-            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-body">
+                <div class="ajuste-seccion">
+                    <h4>General</h4>
+                    <div class="field">
+                        <label>WhatsApp (con prefijo)</label>
+                        <input type="text" id="adj_whatsapp">
+                    </div>
+                    <div class="btn-group">
+                        <div class="field">
+                            <label>Diám. Mín</label>
+                            <input type="number" id="adj_diamMin">
+                        </div>
+                        <div class="field">
+                            <label>Diám. Máx</label>
+                            <input type="number" id="adj_diamMax">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="ajuste-seccion">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h4>Desplegables</h4>
+                        <button class="btn btn-secondary" id="btnAddSelector" style="padding:5px 10px; font-size:0.75rem;">+ Añadir</button>
+                    </div>
+                    <div id="lista-ajustes-selectores">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                </div>
+            </div>
             <div class="modal-footer">
-                <button class="btn btn-cancelar" id="btnCancelar" type="button">Cancelar</button>
-                <button class="btn btn-guardar" id="btnGuardar" type="button">Guardar cambios</button>
+                <button class="btn btn-secondary" id="btnCancelar">Cancelar</button>
+                <button class="btn btn-gen" id="btnGuardar" style="padding:10px 20px; font-size:0.9rem;">Guardar Cambios</button>
             </div>
         </div>
     </div>
 
-    <script src="script.js" defer></script>
+    <script src="script.js"></script>
 </body>
 </html>
